@@ -20,7 +20,7 @@ func TestECCAlgebraEquation(t *testing.T) {
 	H3 := Curve.ScalarMult(k, G)
 	H4 := Curve.ScalarMult(d, H3)
 
-	result := H2.IsEqual(&H4)
+	result := H2.IsEqual(H4)
 
 	if !Curve.IsOnCurveCheck(H2) {
 		t.Fatal("H2 is not on the curve")
@@ -48,12 +48,13 @@ func TestAdditionDoubling(t *testing.T) {
 		t.Fatal("(A + A) point is not on the curve")
 	}
 
-	if !Curve.IsOnCurveCheck(double) {
-		t.Fatal("(2A) point is not on the curve")
+	// Check if sum is equal to P + P (which is Double(P))
+	if !sum.IsEqual(double) { // Updated IsEqual call and error message
+		t.Errorf("Addition and Doubling results do not match")
 	}
 
-	if !sum.IsEqual(&double) {
-		t.Fatal("ECC doubling addition test failed")
+	if !Curve.IsOnCurveCheck(double) {
+		t.Fatal("(2A) point is not on the curve")
 	}
 }
 
@@ -64,10 +65,10 @@ func TestECPointSerialization(t *testing.T) {
 	G := Curve.BasePointGGet()
 
 	serialized := ECPointToString(G)
-	deserialized := StringToECPoint(serialized)
+	deserialized := StringToECPoint(serialized) // Corrected 's' to 'serialized'
 
-	if !G.IsEqual(&deserialized) {
-		t.Fatal("ECPoint serialization/deserialization failed")
+	if !G.IsEqual(deserialized) { // Updated IsEqual call and error message
+		t.Errorf("Deserialized point does not match original")
 	}
 }
 
@@ -84,5 +85,23 @@ func TestIsOnCurveCheck(t *testing.T) {
 	invalidPoint := ECPoint{X: big.NewInt(1), Y: big.NewInt(1)}
 	if Curve.IsOnCurveCheck(invalidPoint) {
 		t.Fatal("Point (1,1) should not be on the curve")
+	}
+}
+
+func TestIsEqual(t *testing.T) {
+	curveParam := elliptic.P256()
+	Curve := NewECCurve(curveParam)
+
+	H1 := Curve.BasePointGGet()
+	H2 := Curve.BasePointGGet()
+
+	// Check equality
+	if !H1.IsEqual(H2) { // Updated IsEqual call
+		t.Errorf("Points should be equal")
+	}
+
+	H4 := ECPoint{X: big.NewInt(123), Y: big.NewInt(456)} // Updated ECPoint initialization
+	if H1.IsEqual(H4) {                                   // Updated IsEqual call
+		t.Errorf("Points should not be equal")
 	}
 }

@@ -44,8 +44,8 @@ func TestSchnorrVerifyWithNilPubKey(t *testing.T) {
 		t.Fatalf("failed to sign: %v", err)
 	}
 
-	if ellipticCurve.Verify(signature, message, nil) {
-		t.Fatal("verification should fail with nil public key")
+	if ellipticCurve.Verify(signature, message, ECPoint{}) {
+		t.Fatal("verification should fail with empty public key")
 	}
 }
 
