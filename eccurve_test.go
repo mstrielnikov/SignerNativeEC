@@ -2,7 +2,7 @@ package main
 
 import (
 	"crypto/elliptic"
-	"fmt"
+	"math/big"
 	"testing"
 )
 
@@ -22,19 +22,16 @@ func TestECCAlgebraEquation(t *testing.T) {
 
 	result := H2.IsEqual(&H4)
 
-	fmt.Println(H2)
-	fmt.Println(H4)
-
 	if !Curve.IsOnCurveCheck(H2) {
-		t.Fatalf("H2 is not on the curve")
+		t.Fatal("H2 is not on the curve")
 	}
 
 	if !Curve.IsOnCurveCheck(H4) {
-		t.Fatalf("H4 is not on the curve")
+		t.Fatal("H4 is not on the curve")
 	}
 
 	if !result {
-		t.Fatalf("ECC Algebra Equation test failed")
+		t.Fatal("ECC Algebra Equation test failed")
 	}
 }
 
@@ -47,18 +44,45 @@ func TestAdditionDoubling(t *testing.T) {
 
 	double := Curve.DoubleECPoints(G)
 
-	fmt.Println(sum)
-	fmt.Println(double)
-
 	if !Curve.IsOnCurveCheck(sum) {
-		t.Fatalf("(A + A) point is not on the curve")
+		t.Fatal("(A + A) point is not on the curve")
 	}
 
 	if !Curve.IsOnCurveCheck(double) {
-		t.Fatalf("(2A) point is not on the curve")
+		t.Fatal("(2A) point is not on the curve")
 	}
 
 	if !sum.IsEqual(&double) {
-		t.Fatalf("ECC doubling addition test failed")
+		t.Fatal("ECC doubling addition test failed")
+	}
+}
+
+func TestECPointSerialization(t *testing.T) {
+	curveParam := elliptic.P256()
+	Curve := NewECCurve(curveParam)
+
+	G := Curve.BasePointGGet()
+
+	serialized := ECPointToString(G)
+	deserialized := StringToECPoint(serialized)
+
+	if !G.IsEqual(&deserialized) {
+		t.Fatal("ECPoint serialization/deserialization failed")
+	}
+}
+
+func TestIsOnCurveCheck(t *testing.T) {
+	curveParam := elliptic.P256()
+	Curve := NewECCurve(curveParam)
+
+	G := Curve.BasePointGGet()
+
+	if !Curve.IsOnCurveCheck(G) {
+		t.Fatal("Generator point should be on the curve")
+	}
+
+	invalidPoint := ECPoint{X: big.NewInt(1), Y: big.NewInt(1)}
+	if Curve.IsOnCurveCheck(invalidPoint) {
+		t.Fatal("Point (1,1) should not be on the curve")
 	}
 }

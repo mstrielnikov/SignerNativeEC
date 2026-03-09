@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/elliptic"
-	"fmt"
 	"math/big"
 	"testing"
 )
@@ -11,29 +10,122 @@ func TestSchnorSign(t *testing.T) {
 	curve := elliptic.P256()
 	ellipticCurve := NewECCurve(curve)
 
-	// Generate key pair
 	privKey, pubKey, err := ellipticCurve.GenerateKeyPair()
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("failed to generate key pair: %v", err)
 	}
 
-	// Convert []byte message to *big.Int
 	message := new(big.Int).SetBytes([]byte("Hello, Schnorr!"))
-	fmt.Println("Message as big int:", message)
 
-	// Sign a message
 	signature, err := ellipticCurve.Sign(message, privKey)
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("failed to sign: %v", err)
 	}
 
-	fmt.Println("Signature:", &signature)
-
-	// Verify the signature
 	verified := ellipticCurve.Verify(signature, message, pubKey)
-	if verified {
-		fmt.Println("Signature is valid.")
-	} else {
-		t.Fatalf("Signature is invalid.")
+	if !verified {
+		t.Fatal("signature is invalid.")
+	}
+}
+
+func TestSchnorrVerifyWithNilPubKey(t *testing.T) {
+	curve := elliptic.P256()
+	ellipticCurve := NewECCurve(curve)
+
+	privKey, _, err := ellipticCurve.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("failed to generate key pair: %v", err)
+	}
+
+	message := new(big.Int).SetBytes([]byte("test"))
+
+	signature, err := ellipticCurve.Sign(message, privKey)
+	if err != nil {
+		t.Fatalf("failed to sign: %v", err)
+	}
+
+	if ellipticCurve.Verify(signature, message, nil) {
+		t.Fatal("verification should fail with nil public key")
+	}
+}
+
+func TestSchnorrVerifyWithInvalidSignature(t *testing.T) {
+	curve := elliptic.P256()
+	ellipticCurve := NewECCurve(curve)
+
+	_, pubKey, err := ellipticCurve.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("failed to generate key pair: %v", err)
+	}
+
+	message := new(big.Int).SetBytes([]byte("test"))
+	invalidSig := &SchnorrSignature{R: big.NewInt(1), S: big.NewInt(1)}
+
+	if ellipticCurve.Verify(invalidSig, message, pubKey) {
+		t.Fatal("verification should fail with invalid signature")
+	}
+}
+
+func TestSchnorrVerifyWithWrongMessage(t *testing.T) {
+	curve := elliptic.P256()
+	ellipticCurve := NewECCurve(curve)
+
+	privKey, pubKey, err := ellipticCurve.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("failed to generate key pair: %v", err)
+	}
+
+	message := new(big.Int).SetBytes([]byte("original message"))
+
+	signature, err := ellipticCurve.Sign(message, privKey)
+	if err != nil {
+		t.Fatalf("failed to sign: %v", err)
+	}
+
+	wrongMessage := new(big.Int).SetBytes([]byte("different message"))
+	if ellipticCurve.Verify(signature, wrongMessage, pubKey) {
+		t.Fatal("verification should fail with wrong message")
+	}
+}
+
+func TestSchnorrVerifyWithWrongPubKey(t *testing.T) {
+	curve := elliptic.P256()
+	ellipticCurve := NewECCurve(curve)
+
+	privKey, _, err := ellipticCurve.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("failed to generate key pair: %v", err)
+	}
+
+	_, wrongPubKey, err := ellipticCurve.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("failed to generate wrong key pair: %v", err)
+	}
+
+	message := new(big.Int).SetBytes([]byte("test"))
+
+	signature, err := ellipticCurve.Sign(message, privKey)
+	if err != nil {
+		t.Fatalf("failed to sign: %v", err)
+	}
+
+	if ellipticCurve.Verify(signature, message, wrongPubKey) {
+		t.Fatal("verification should fail with wrong public key")
+	}
+}
+
+func TestSchnorrVerifyWithNilSignature(t *testing.T) {
+	curve := elliptic.P256()
+	ellipticCurve := NewECCurve(curve)
+
+	_, pubKey, err := ellipticCurve.GenerateKeyPair()
+	if err != nil {
+		t.Fatalf("failed to generate key pair: %v", err)
+	}
+
+	message := new(big.Int).SetBytes([]byte("test"))
+
+	if ellipticCurve.Verify(nil, message, pubKey) {
+		t.Fatal("verification should fail with nil signature")
 	}
 }

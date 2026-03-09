@@ -16,64 +16,80 @@ type SchnorrSignature struct {
 // GenerateKeyPair generates a key pair for Schnorr signatures.
 func (ec *ECCurve) GenerateKeyPair() (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {
 	priv, err := ecdsa.GenerateKey(ec.curve, rand.Reader)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	if !ec.IsOnCurveCheck(ECPoint{priv.X, priv.Y}) {
 		return nil, nil, fmt.Errorf("private key point in not on the curve")
 	}
 
-	if err != nil {
-		return nil, nil, err
-	}
 	return priv, &priv.PublicKey, nil
 }
 
 // Sign generates a Schnorr signature for a given message and private key.
 func (ec *ECCurve) Sign(message *big.Int, priv *ecdsa.PrivateKey) (*SchnorrSignature, error) {
-	// Generate a random nonce
 	k, err := rand.Int(rand.Reader, ec.curve.Params().N)
 	if err != nil {
 		return nil, err
 	}
 
-	// Calculate R = k * G
+	if k.Sign() == 0 {
+		return nil, fmt.Errorf("nonce k cannot be zero")
+	}
+
 	Rx, _ := ec.curve.ScalarBaseMult(k.Bytes())
 
-	// Calculate r = H(R || pubKey || message)
 	r := hashPoints(Rx, priv.PublicKey.X, priv.PublicKey.Y, message)
 
-	// Calculate s = k + e * privateKey
 	s := new(big.Int).Mul(r, priv.D)
 	s.Add(s, k)
 	s.Mod(s, ec.curve.Params().N)
 
-	// The signature is (R, s)
+	if s.Sign() == 0 {
+		return nil, fmt.Errorf("signature s cannot be zero")
+	}
+
 	return &SchnorrSignature{R: Rx, S: s}, nil
 }
 
 // Verify verifies a Schnorr signature for a given message and public key.
 func (ec *ECCurve) Verify(signature *SchnorrSignature, message *big.Int, pub *ecdsa.PublicKey) bool {
-	// Check for nil public key
-	if pub == nil {
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+
+	if pub == nil || pub.X == nil || pub.Y == nil {
 		return false
 	}
 
-	// Calculate e = H(R || pubKey || message)
+	if signature == nil || signature.R == nil || signature.S == nil {
+		return false
+	}
+
 	e := hashPoints(signature.R, pub.X, pub.Y, message)
 
-	// Calculate R' = s * G - e * pubKey
 	var Rx, Ry *big.Int
 	Rx, Ry = ec.curve.ScalarBaseMult(signature.S.Bytes())
-
-	// Check for nil curve points
-	if signature.R == nil {
+	if Ry == nil {
 		return false
 	}
 
 	tempX, tempY := ec.curve.ScalarMult(pub.X, pub.Y, e.Bytes())
-	Rx, Ry = ec.curve.Add(Rx, Ry, tempX, new(big.Int).Neg(tempY))
+	if tempY == nil {
+		return false
+	}
 
-	// Check if R == R'
-	return signature.R.Cmp(Rx) == 0 && Ry != nil
+	negY := new(big.Int).Neg(tempY)
+	negY.Mod(negY, ec.curve.Params().P)
+	Rx, Ry = ec.curve.Add(Rx, Ry, tempX, negY)
+	if Ry == nil {
+		return false
+	}
+
+	return signature.R.Cmp(Rx) == 0
 }
 
 // hashPoints concatenates the coordinates of given points and the message, and then hashes the result using SHA-256.
