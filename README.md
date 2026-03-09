@@ -8,20 +8,30 @@ A lightweight Go wrapper library designed to simplify elliptic curve cryptograph
 ## 🚀 Key Features
 
 - **Simplified ECC Algebra**: Clean methods for scalar multiplication, point addition, and point doubling.
-- **Native Schnorr Signatures**: High-level API for generating and verifying Schnorr signatures.
-- **Ergonomic Point Handling**: `ECPoint` struct for easy coordinate management.
-- **Serialization Support**: Built-in JSON serialization for elliptic curve points.
-- **Safe and Verified**: Comprehensive test suite ensuring mathematical correctness.
+- **Generic Signer Interface**: Abstract `Signer` and `Verifier` interfaces for flexible implementation.
+- **Twisted Edwards Support**: Native implementation of Twisted Edwards curves, compatible with the common signing logic.
+- **Native Schnorr Signatures**: High-level API for generating and verifying Schnorr signatures across different curve types.
+- **Safe and Verified**: Comprehensive test suite ensuring mathematical correctness for both Weierstrass and Edwards curves.
 
 ## 📦 Core Concepts
 
-### `ECCurve`
+### `Signer` & `Verifier`
 
-The central component that wraps a `crypto/elliptic.Curve`. It provides the high-level algebra methods.
+Generic interfaces for signing operations, allowing for different curve parameterizations.
+
+```go
+type Signer interface {
+    Sign(message *big.Int, priv *big.Int) (*SchnorrSignature, error)
+}
+
+type Verifier interface {
+    Verify(sig *SchnorrSignature, message *big.Int, pub ECPoint) bool
+}
+```
 
 ### `ECPoint`
 
-Represents a point $(x, y)$ on the elliptic curve.
+Represents a point $(x, y)$ on any supported elliptic curve.
 
 ```go
 type ECPoint struct {
@@ -41,7 +51,7 @@ go get github.com/mstrielnikov/ECCSignWrapper
 
 ## 📖 Getting Started
 
-### Initializing a Curve
+### Initializing a Curve (Weierstrass)
 
 ```go
 import "crypto/elliptic"
@@ -49,13 +59,21 @@ import "crypto/elliptic"
 curve := NewECCurve(elliptic.P256())
 ```
 
+### Initializing a Curve (Edwards)
+
+```go
+// Example parameters for a Twisted Edwards curve
+edCurve := NewEdwardsCurve(a, d, p, n, Gx, Gy)
+curve := NewECCurve(edCurve)
+```
+
 ### Key Generation and Signing
 
 ```go
-// Generate keys
+// Generate keys (returns *big.Int private and ECPoint public)
 priv, pub, _ := curve.GenerateKeyPair()
 
-// Message to sign (as big.Int)
+// Message to sign
 message := new(big.Int).SetBytes([]byte("Hello, ECC!"))
 
 // Sign the message
@@ -69,6 +87,30 @@ isValid := curve.Verify(signature, message, pub)
 if isValid {
     fmt.Println("Signature is valid!")
 }
+```
+
+## 💻 CLI Interface
+
+The library provides a built-in CLI for common cryptographic operations.
+
+### Key Generation
+
+```bash
+go run . keygen --curve p256
+# or
+go run . keygen --curve edwards
+```
+
+### Signing a Message
+
+```bash
+go run . sign --curve p256 --priv "YOUR_PRIVATE_KEY" --msg "Hello World"
+```
+
+### Verifying a Signature
+
+```bash
+go run . verify --curve p256 --pub '{"X":..., "Y":...}' --msg "Hello World" --sig '{"R":..., "S":...}'
 ```
 
 ## 🧪 Testing
